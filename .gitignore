@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+*.whl
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Type checker / linters
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs / runtime
+*.log
+*.pid
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local DB / data artifacts
+*.sqlite
+*.db
+
+# Podman / compose local overrides
+ops/.env
+ops/.podman/

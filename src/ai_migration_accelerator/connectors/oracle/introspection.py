@@ -70,9 +70,9 @@ def _introspect_live_tables(source_connection: str) -> tuple[list[dict[str, obje
 def _merge_tables(
     ddl_tables: list[dict[str, object]], live_tables: list[dict[str, object]]
 ) -> list[dict[str, object]]:
-    merged: dict[str, dict[str, object]] = {table["name"]: table for table in ddl_tables}
+    merged: dict[str, dict[str, object]] = {str(table["name"]): table for table in ddl_tables}
     for table in live_tables:
-        merged[table["name"]] = table
+        merged[str(table["name"])] = table
     return list(merged.values())
 
 
