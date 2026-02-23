@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: ai-migration-accelerator
+Version: 0.1.0
+Summary: Schema-to-Agent migration assistant with LangGraph orchestration
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.30.0
+Requires-Dist: pydantic>=2.8.0
+Requires-Dist: pydantic-settings>=2.4.0
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: oracledb>=2.2.0
+Requires-Dist: psycopg[binary]>=3.2.0
+Requires-Dist: langgraph>=0.2.0
+Requires-Dist: langchain>=0.3.0
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: pandas>=2.2.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
+Requires-Dist: httpx>=0.27.0; extra == "dev"
+
+# AI Migration Accelerator
+
+LangGraph-based multi-agent migration assistant for legacy schemas to vector-ready PostgreSQL (`pgvector`).
+
+## Current MVP Bootstrap
+
+- FastAPI control plane with job and artifact endpoints.
+- LangGraph orchestration pipeline with specialized agents:
+  - Ingestion (DDL-aware metadata collection)
+  - Schema Analyzer (legacy-to-target mapping)
+  - Code Generation (deterministic template rendering)
+  - Validation (structural smoke checks)
+- Podman local stack for app + Postgres/pgvector + Redis.
+
+## Run locally
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+uvicorn ai_migration_accelerator.main:app --reload
+```
+
+## Run tests
+
+```bash
+pytest -q
+```
+
+## Podman
+
+```bash
+cd ops
+podman compose -f podman-compose.yml up --build
+```

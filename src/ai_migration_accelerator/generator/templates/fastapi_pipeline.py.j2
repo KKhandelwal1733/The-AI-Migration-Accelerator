@@ -1,0 +1,18 @@
+from fastapi import APIRouter
+
+router = APIRouter()
+
+
+@router.post("/migrate")
+def migrate_rows() -> dict[str, object]:
+    mapped_columns = [
+{% for column in columns %}
+        {
+            "table": "{{ column.table }}",
+            "column": "{{ column.column }}",
+            "source_type": "{{ column.source_type }}",
+            "target_type": "{{ column.target_type }}",
+        },
+{% endfor %}
+    ]
+    return {"status": "ready", "mapped_columns": mapped_columns}
