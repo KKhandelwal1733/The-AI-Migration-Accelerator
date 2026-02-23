@@ -13,10 +13,16 @@ The system uses a coordinator-driven graph with these stages:
 
 ## Agents
 
-- **Ingestion Engine**: parses DDL and prepares source metadata payloads.
+- **Ingestion Engine**: merges parsed DDL metadata with live SQLAlchemy metadata reflection from Oracle/PostgreSQL sources.
 - **Schema Analyzer Agent**: maps source types to PostgreSQL/pgvector-compatible target types.
 - **Code Generation Agent**: renders deterministic FastAPI migration pipeline artifacts from templates.
 - **Validation Agent**: performs structural smoke checks for migration readiness.
+
+## Runtime State
+
+- Job state is persisted in an in-memory run store for MVP (`status`, `open_questions`, `generated_artifacts`, `validation_report`).
+- `/jobs` submits and executes the graph pipeline, then stores the workflow result.
+- `/artifacts/{run_id}` returns concrete generated files and serialized validation output.
 
 ## Policies
 
