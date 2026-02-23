@@ -33,3 +33,56 @@ pytest -q
 cd ops
 podman compose -f podman-compose.yml up --build
 ```
+
+## Real integration demo (Oracle + PostgreSQL)
+
+1. Start the stack:
+
+```bash
+cd ops
+podman compose -f podman-compose.yml up -d --build
+```
+
+2. Wait for Oracle XE startup (first boot can take a few minutes).
+
+3. Seed Oracle with one command:
+
+PowerShell (Windows):
+
+```powershell
+./seed_oracle.ps1
+```
+
+Bash:
+
+```bash
+chmod +x seed_oracle.sh
+./seed_oracle.sh
+```
+
+4. Trigger migration planning through API:
+
+```bash
+curl -X POST http://127.0.0.1:8000/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_type": "oracle",
+    "source_connection": "oracle+oracledb://accelerator:accelerator@oracle:1521/XEPDB1",
+    "target_connection": "postgresql+psycopg://accelerator:accelerator@postgres:5432/accelerator",
+    "ddl_text": "CREATE TABLE customers (id NUMBER, full_name VARCHAR2(120), notes VARCHAR2(4000));",
+    "enable_llm_advisor": false
+  }'
+```
+
+5. Use returned `run_id` to inspect outputs:
+
+```bash
+curl http://127.0.0.1:8000/jobs/<run_id>
+curl http://127.0.0.1:8000/artifacts/<run_id>
+```
+
+6. Verify pgvector extension in Postgres:
+
+```bash
+podman compose -f podman-compose.yml exec postgres psql -U accelerator -d accelerator -c "\dx"
+```

@@ -9,6 +9,7 @@ services:
       - PYTHONUNBUFFERED=1
     depends_on:
       - postgres
+      - oracle
       - redis
 
   postgres:
@@ -17,10 +18,29 @@ services:
       - POSTGRES_USER=accelerator
       - POSTGRES_PASSWORD=accelerator
       - POSTGRES_DB=accelerator
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init/postgres:/docker-entrypoint-initdb.d:Z
     ports:
       - "5432:5432"
+
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    environment:
+      - ORACLE_PASSWORD=oracle
+      - APP_USER=accelerator
+      - APP_USER_PASSWORD=accelerator
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    ports:
+      - "1521:1521"
+      - "5500:5500"
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
+volumes:
+  postgres-data:
+  oracle-data:
