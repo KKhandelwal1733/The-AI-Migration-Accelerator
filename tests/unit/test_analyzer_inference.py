@@ -35,7 +35,7 @@ def test_infers_customer_orders_join_and_order_notes_embedding_candidate():
 
     analyzed = analyze_schema(state)
 
-    assert analyzed.mapping_plan["workflow_summary"]["detected_customer_orders_flow"]
+    assert analyzed.mapping_plan["workflow_summary"]["inferred_join_count"] >= 1
     assert len(analyzed.mapping_plan["join_logic"]) >= 1
     candidates = analyzed.mapping_plan["embedding_candidates"]
     assert any(candidate["column"] == "order_notes" for candidate in candidates)

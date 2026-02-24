@@ -16,6 +16,11 @@ VECTOR_DIM = int(os.getenv("VECTOR_DIM", "384"))
 REPORT_PATH = os.getenv("REPORT_PATH", "migration_report.json")
 
 JOIN_LOGIC = {{ joins | tojson }}
+DISCOVERED_TABLES = [
+{% for entity in entities %}
+    "{{ entity.table }}",
+{% endfor %}
+]
 EMBEDDING_COLUMN = "{{ selected_embedding_column.column }}"
 _EMBEDDER: SentenceTransformer | None = None
 
@@ -82,7 +87,9 @@ def run_migration() -> None:
                 table_names.add(join_item["to"])
 
         if not table_names:
-            table_names = {"customers"}
+            table_names = set(DISCOVERED_TABLES)
+        if not table_names:
+            raise RuntimeError("No source tables discovered for migration execution.")
 
         with source_engine.connect() as source_conn:
             source_tables = {

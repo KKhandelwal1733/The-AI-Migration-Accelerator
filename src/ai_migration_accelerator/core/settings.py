@@ -16,7 +16,7 @@ class AppSettings(BaseSettings):
     target_connection: str | None = None
 
     enable_llm_advisor: bool = False
-    llm_model: str = "gemini-1.5-pro"
+    llm_model: str = "gemini-2.5-pro"
     google_api_key: str | None = None
 
     include_sample_rows: bool = True
