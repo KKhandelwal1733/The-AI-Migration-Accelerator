@@ -21,9 +21,9 @@ def _sample_rows(
         return []
 
     if dialect_name == "oracle":
-        query = text(f'SELECT * FROM "{table_name}" FETCH FIRST {sample_row_limit} ROWS ONLY')
+        query = text(f'SELECT * FROM {table_name} FETCH FIRST {sample_row_limit} ROWS ONLY')
     else:
-        query = text(f'SELECT * FROM "{table_name}" LIMIT {sample_row_limit}')
+        query = text(f'SELECT * FROM {table_name} LIMIT {sample_row_limit}')
 
     with engine.connect() as connection:
         rows = connection.execute(query).mappings().all()

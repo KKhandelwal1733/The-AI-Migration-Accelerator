@@ -31,7 +31,8 @@ def generate_code(state: WorkflowState) -> WorkflowState:
     )
 
     if state.context.enable_llm_advisor:
-        state.generated_artifacts["advisor_notes.md"] = (
-            "LLM advisor is enabled in metadata-only mode for template hints."
+        state.generated_artifacts.setdefault(
+            "advisor_notes.md",
+            "LLM advisor enabled, but no advisor output was produced.",
         )
     return state
