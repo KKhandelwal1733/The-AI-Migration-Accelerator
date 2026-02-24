@@ -11,5 +11,7 @@ def test_execute_workflow_generates_artifact_and_report():
     )
     result = execute_workflow(run_id="test-run", context=context)
 
-    assert "generated_pipeline.py" in result.generated_artifacts
+    assert "migrate.py" in result.generated_artifacts
+    assert "Dockerfile" in result.generated_artifacts
+    assert "requirements.txt" in result.generated_artifacts
     assert "checks" in result.validation_report

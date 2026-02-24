@@ -1,0 +1,174 @@
+from __future__ import annotations
+
+import json
+import os
+from typing import Any
+
+import pandas as pd
+import requests
+from sqlalchemy import create_engine, text
+
+SOURCE_CONNECTION = "{{ source_connection }}"
+TARGET_CONNECTION = "{{ target_connection }}"
+EMBEDDING_API_URL = "{{ embedding_api_url }}"
+EMBEDDING_MODEL = "{{ embedding_model }}"
+VECTOR_TABLE = "{{ vector_table }}"
+VECTOR_DIM = int(os.getenv("VECTOR_DIM", "768"))
+REPORT_PATH = os.getenv("REPORT_PATH", "migration_report.json")
+
+JOIN_LOGIC = {{ joins | tojson }}
+EMBEDDING_COLUMN = "{{ selected_embedding_column.column }}"
+
+
+def _normalize_embedding(values: list[float], dim: int) -> list[float]:
+    if len(values) >= dim:
+        return values[:dim]
+    return values + [0.0] * (dim - len(values))
+
+
+def _fetch_embedding(payload: str) -> list[float]:
+    response = requests.post(
+        EMBEDDING_API_URL,
+        json={"model": EMBEDDING_MODEL, "input": payload},
+        timeout=60,
+    )
+    response.raise_for_status()
+    data: Any = response.json()
+
+    if isinstance(data, dict) and "data" in data and data["data"]:
+        embedding = data["data"][0].get("embedding", [])
+    else:
+        embedding = data.get("embedding", []) if isinstance(data, dict) else []
+
+    return _normalize_embedding([float(value) for value in embedding], VECTOR_DIM)
+
+
+def _load_table(connection, table_name: str) -> pd.DataFrame:
+    return pd.read_sql(text(f'SELECT * FROM "{table_name}"'), connection)
+
+
+def _join_frames(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    if not JOIN_LOGIC:
+        return next(iter(tables.values()))
+
+    first_join = JOIN_LOGIC[0]
+    left_name = first_join.get("from")
+    right_name = first_join.get("to")
+    from_columns = first_join.get("on", {}).get("from_columns", [])
+    to_columns = first_join.get("on", {}).get("to_columns", [])
+
+    if not left_name or not right_name or not from_columns or not to_columns:
+        return next(iter(tables.values()))
+
+    if left_name not in tables or right_name not in tables:
+        return next(iter(tables.values()))
+
+    return tables[left_name].merge(
+        tables[right_name],
+        left_on=from_columns[0],
+        right_on=to_columns[0],
+        how="left",
+        suffixes=("_left", "_right"),
+    )
+
+
+def run_migration() -> None:
+    source_engine = create_engine(SOURCE_CONNECTION)
+    target_engine = create_engine(TARGET_CONNECTION)
+
+    try:
+        table_names = set()
+        for join_item in JOIN_LOGIC:
+            if join_item.get("from"):
+                table_names.add(join_item["from"])
+            if join_item.get("to"):
+                table_names.add(join_item["to"])
+
+        if not table_names:
+            table_names = {"customers"}
+
+        with source_engine.connect() as source_conn:
+            source_tables = {
+                table_name: _load_table(source_conn, table_name) for table_name in sorted(table_names)
+            }
+
+        merged = _join_frames(source_tables)
+
+        if EMBEDDING_COLUMN not in merged.columns:
+            fallback_column = None
+            for column in merged.columns:
+                if any(key in str(column).lower() for key in ["note", "text", "description", "comment"]):
+                    fallback_column = str(column)
+                    break
+            if fallback_column is None:
+                fallback_column = str(merged.columns[0])
+            embedding_column = fallback_column
+        else:
+            embedding_column = EMBEDDING_COLUMN
+
+        merged["embedding_input"] = merged[embedding_column].fillna("").astype(str)
+        merged["embedding_vector"] = merged["embedding_input"].apply(_fetch_embedding)
+
+        with target_engine.begin() as target_conn:
+            target_conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            target_conn.execute(
+                text(
+                    f"""
+                    CREATE TABLE IF NOT EXISTS {VECTOR_TABLE} (
+                        id BIGSERIAL PRIMARY KEY,
+                        source_key TEXT,
+                        content TEXT,
+                        embedding VECTOR({VECTOR_DIM}),
+                        metadata JSONB
+                    )
+                    """
+                )
+            )
+
+            for _, row in merged.iterrows():
+                source_key = str(row.get("id", row.name))
+                content = row["embedding_input"]
+                embedding_literal = "[" + ",".join(str(value) for value in row["embedding_vector"]) + "]"
+                metadata = json.dumps({"join_logic": JOIN_LOGIC, "embedding_column": embedding_column})
+                target_conn.execute(
+                    text(
+                        f"""
+                        INSERT INTO {VECTOR_TABLE} (source_key, content, embedding, metadata)
+                        VALUES (:source_key, :content, CAST(:embedding_literal AS vector), CAST(:metadata AS jsonb))
+                        """
+                    ),
+                    {
+                        "source_key": source_key,
+                        "content": content,
+                        "embedding_literal": embedding_literal,
+                        "metadata": metadata,
+                    },
+                )
+
+        source_count = int(len(merged.index))
+        with target_engine.connect() as target_conn:
+            target_count = int(
+                target_conn.execute(text(f"SELECT COUNT(*) FROM {VECTOR_TABLE}")).scalar_one()
+            )
+
+        loss_pct = 0.0
+        if source_count > 0:
+            loss_pct = max(0.0, ((source_count - target_count) / source_count) * 100.0)
+
+        report = {
+            "source_count": source_count,
+            "target_count": target_count,
+            "loss_percentage": round(loss_pct, 4),
+            "embedding_column": embedding_column,
+            "join_count": len(JOIN_LOGIC),
+        }
+
+        with open(REPORT_PATH, "w", encoding="utf-8") as report_file:
+            json.dump(report, report_file, indent=2)
+    finally:
+        source_engine.dispose()
+        target_engine.dispose()
+
+
+if __name__ == "__main__":
+    run_migration()

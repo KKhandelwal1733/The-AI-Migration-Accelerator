@@ -33,6 +33,14 @@ def create_job(request: JobCreateRequest) -> JobCreateResponse:
         target_connection=request.target_connection,
         ddl_text=request.ddl_text,
         enable_llm_advisor=request.enable_llm_advisor,
+        llm_model=request.llm_model,
+        include_sample_rows=request.include_sample_rows,
+        sample_row_limit=request.sample_row_limit,
+        embedding_api_url=request.embedding_api_url,
+        embedding_model=request.embedding_model,
+        vector_table=request.vector_table,
+        run_containerized_migration=request.run_containerized_migration,
+        container_runtime=request.container_runtime,
     )
 
     try:

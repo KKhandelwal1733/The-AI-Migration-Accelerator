@@ -24,7 +24,9 @@ def test_create_job_and_fetch_status_and_artifacts():
     artifacts_response = client.get(f"/artifacts/{run_id}")
     assert artifacts_response.status_code == 200
     files = artifacts_response.json()["files"]
-    assert "generated_pipeline.py" in files
+    assert "migrate.py" in files
+    assert "Dockerfile" in files
+    assert "requirements.txt" in files
     assert "validation_report.json" in files
 
 

@@ -21,6 +21,15 @@ pip install -e .[dev]
 uvicorn ai_migration_accelerator.main:app --reload
 ```
 
+### Optional: enable Gemini LLM advisor
+
+Set environment variables before starting the API:
+
+```bash
+export GOOGLE_API_KEY=<your_api_key>
+export LLM_MODEL=gemini-1.5-pro
+```
+
 ## Run tests
 
 ```bash
@@ -70,7 +79,8 @@ curl -X POST http://127.0.0.1:8000/jobs \
     "source_connection": "oracle+oracledb://accelerator:accelerator@oracle:1521/XEPDB1",
     "target_connection": "postgresql+psycopg://accelerator:accelerator@postgres:5432/accelerator",
     "ddl_text": "CREATE TABLE customers (id NUMBER, full_name VARCHAR2(120), notes VARCHAR2(4000));",
-    "enable_llm_advisor": false
+    "enable_llm_advisor": true,
+    "llm_model": "gemini-1.5-pro"
   }'
 ```
 
