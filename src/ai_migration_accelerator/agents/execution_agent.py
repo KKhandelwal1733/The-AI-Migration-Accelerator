@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -69,6 +70,10 @@ def execute_migration(state: WorkflowState) -> WorkflowState:
                     "--rm",
                     "-e",
                     "REPORT_PATH=/output/migration_report.json",
+                    "-e",
+                    f"{state.context.hf_token_env_var}={os.getenv(state.context.hf_token_env_var, '')}",
+                    "-e",
+                    "VECTOR_DIM=" + os.getenv("VECTOR_DIM", "384"),
                     "-v",
                     f"{temp_path.as_posix()}:/output",
                     image_tag,

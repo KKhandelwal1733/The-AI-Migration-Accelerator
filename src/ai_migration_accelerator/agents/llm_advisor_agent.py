@@ -5,6 +5,7 @@ import os
 import re
 from importlib import import_module
 
+from ai_migration_accelerator.core.settings import get_settings
 from ai_migration_accelerator.models.state import WorkflowState
 
 
@@ -76,7 +77,8 @@ def run_llm_advisor(state: WorkflowState) -> WorkflowState:
     if not state.context.enable_llm_advisor:
         return state
 
-    api_key = os.getenv("GOOGLE_API_KEY")
+    settings = get_settings()
+    api_key = os.getenv("GOOGLE_API_KEY") or settings.google_api_key
     if not api_key:
         state.open_questions.append(
             "LLM advisor enabled but GOOGLE_API_KEY is not set; using deterministic inference only."

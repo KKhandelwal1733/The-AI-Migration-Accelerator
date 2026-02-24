@@ -1,9 +1,17 @@
+from types import SimpleNamespace
+
+import ai_migration_accelerator.agents.llm_advisor_agent as llm_advisor_module
 from ai_migration_accelerator.agents.llm_advisor_agent import run_llm_advisor
 from ai_migration_accelerator.models.state import RunContext, WorkflowState
 
 
 def test_llm_advisor_falls_back_without_api_key(monkeypatch):
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.setattr(
+        llm_advisor_module,
+        "get_settings",
+        lambda: SimpleNamespace(google_api_key=None),
+    )
 
     context = RunContext(
         source_type="postgresql",

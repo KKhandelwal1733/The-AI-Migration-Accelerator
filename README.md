@@ -30,6 +30,18 @@ export GOOGLE_API_KEY=<your_api_key>
 export LLM_MODEL=gemini-1.5-pro
 ```
 
+`POST /jobs` now resolves defaults from `.env` for these fields when omitted:
+- `enable_llm_advisor`
+- `llm_model`
+- `include_sample_rows`
+- `sample_row_limit`
+- `embedding_model`
+- `hf_token_env_var`
+- `vector_table`
+- `run_containerized_migration`
+- `container_runtime`
+- `source_connection` / `target_connection` (if provided in `.env`)
+
 ### Embeddings via Hugging Face sentence-transformers
 
 The generated `migrate.py` uses `sentence-transformers` and reads the token from `.env`.

@@ -7,18 +7,18 @@ from ai_migration_accelerator.models.state import RunStatus
 
 class JobCreateRequest(BaseModel):
     source_type: str = Field(pattern="^(oracle|postgresql)$")
-    source_connection: str
-    target_connection: str
+    source_connection: str | None = None
+    target_connection: str | None = None
     ddl_text: str | None = None
-    enable_llm_advisor: bool = False
-    llm_model: str = "gemini-1.5-pro"
-    include_sample_rows: bool = True
-    sample_row_limit: int = Field(default=3, ge=0, le=50)
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
-    hf_token_env_var: str = "HF_TOKEN"
-    vector_table: str = "rag_documents"
-    run_containerized_migration: bool = False
-    container_runtime: str = Field(default="podman", pattern="^(podman|docker)$")
+    enable_llm_advisor: bool | None = None
+    llm_model: str | None = None
+    include_sample_rows: bool | None = None
+    sample_row_limit: int | None = Field(default=None, ge=0, le=50)
+    embedding_model: str | None = None
+    hf_token_env_var: str | None = None
+    vector_table: str | None = None
+    run_containerized_migration: bool | None = None
+    container_runtime: str | None = Field(default=None, pattern="^(podman|docker)$")
 
 
 class JobCreateResponse(BaseModel):
