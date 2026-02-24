@@ -2,22 +2,22 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any
 
 import pandas as pd
-import requests
+from sentence_transformers import SentenceTransformer
 from sqlalchemy import create_engine, text
 
 SOURCE_CONNECTION = "{{ source_connection }}"
 TARGET_CONNECTION = "{{ target_connection }}"
-EMBEDDING_API_URL = "{{ embedding_api_url }}"
 EMBEDDING_MODEL = "{{ embedding_model }}"
+HF_TOKEN_ENV_VAR = "{{ hf_token_env_var }}"
 VECTOR_TABLE = "{{ vector_table }}"
-VECTOR_DIM = int(os.getenv("VECTOR_DIM", "768"))
+VECTOR_DIM = int(os.getenv("VECTOR_DIM", "384"))
 REPORT_PATH = os.getenv("REPORT_PATH", "migration_report.json")
 
 JOIN_LOGIC = {{ joins | tojson }}
 EMBEDDING_COLUMN = "{{ selected_embedding_column.column }}"
+_EMBEDDER: SentenceTransformer | None = None
 
 
 def _normalize_embedding(values: list[float], dim: int) -> list[float]:
@@ -26,21 +26,18 @@ def _normalize_embedding(values: list[float], dim: int) -> list[float]:
     return values + [0.0] * (dim - len(values))
 
 
+def _get_embedder() -> SentenceTransformer:
+    global _EMBEDDER
+    if _EMBEDDER is None:
+        token = os.getenv(HF_TOKEN_ENV_VAR, "")
+        kwargs = {"token": token} if token else {}
+        _EMBEDDER = SentenceTransformer(EMBEDDING_MODEL, **kwargs)
+    return _EMBEDDER
+
+
 def _fetch_embedding(payload: str) -> list[float]:
-    response = requests.post(
-        EMBEDDING_API_URL,
-        json={"model": EMBEDDING_MODEL, "input": payload},
-        timeout=60,
-    )
-    response.raise_for_status()
-    data: Any = response.json()
-
-    if isinstance(data, dict) and "data" in data and data["data"]:
-        embedding = data["data"][0].get("embedding", [])
-    else:
-        embedding = data.get("embedding", []) if isinstance(data, dict) else []
-
-    return _normalize_embedding([float(value) for value in embedding], VECTOR_DIM)
+    embedding = _get_embedder().encode(payload)
+    return _normalize_embedding([float(value) for value in embedding.tolist()], VECTOR_DIM)
 
 
 def _load_table(connection, table_name: str) -> pd.DataFrame:

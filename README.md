@@ -30,6 +30,15 @@ export GOOGLE_API_KEY=<your_api_key>
 export LLM_MODEL=gemini-1.5-pro
 ```
 
+### Embeddings via Hugging Face sentence-transformers
+
+The generated `migrate.py` uses `sentence-transformers` and reads the token from `.env`.
+
+```bash
+export HF_TOKEN=<your_huggingface_token>
+export EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+```
+
 ## Run tests
 
 ```bash
@@ -80,7 +89,9 @@ curl -X POST http://127.0.0.1:8000/jobs \
     "target_connection": "postgresql+psycopg://accelerator:accelerator@postgres:5432/accelerator",
     "ddl_text": "CREATE TABLE customers (id NUMBER, full_name VARCHAR2(120), notes VARCHAR2(4000));",
     "enable_llm_advisor": true,
-    "llm_model": "gemini-1.5-pro"
+    "llm_model": "gemini-1.5-pro",
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "hf_token_env_var": "HF_TOKEN"
   }'
 ```
 

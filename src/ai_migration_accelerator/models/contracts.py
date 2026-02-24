@@ -14,8 +14,8 @@ class JobCreateRequest(BaseModel):
     llm_model: str = "gemini-1.5-pro"
     include_sample_rows: bool = True
     sample_row_limit: int = Field(default=3, ge=0, le=50)
-    embedding_api_url: str = "http://host.docker.internal:11434/api/embeddings"
-    embedding_model: str = "nomic-embed-text"
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    hf_token_env_var: str = "HF_TOKEN"
     vector_table: str = "rag_documents"
     run_containerized_migration: bool = False
     container_runtime: str = Field(default="podman", pattern="^(podman|docker)$")

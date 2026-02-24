@@ -19,8 +19,8 @@ def generate_code(state: WorkflowState) -> WorkflowState:
         selected_embedding_column=state.mapping_plan.get("selected_embedding_column", {}),
         source_connection=state.context.source_connection,
         target_connection=state.context.target_connection,
-        embedding_api_url=state.context.embedding_api_url,
         embedding_model=state.context.embedding_model,
+        hf_token_env_var=state.context.hf_token_env_var,
         vector_table=state.context.vector_table,
     )
 

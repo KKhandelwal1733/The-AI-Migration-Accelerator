@@ -10,7 +10,7 @@ def generate_infra(state: WorkflowState) -> WorkflowState:
             "psycopg[binary]>=3.2.0",
             "oracledb>=2.2.0",
             "pandas>=2.2.0",
-            "requests>=2.32.0",
+            "sentence-transformers>=3.0.0",
         ]
     )
 
