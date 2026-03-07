@@ -35,6 +35,7 @@ def _build_prompt(state: WorkflowState) -> str:
     table_profiles = state.schema_context.get("table_profiles", [])
     join_graph = state.schema_context.get("join_graph", [])
     current_selected = state.mapping_plan.get("selected_embedding_column", {})
+    current_selected_columns = state.mapping_plan.get("selected_embedding_columns", [])
 
     prompt_payload = {
         "table_profiles": table_profiles,
@@ -44,10 +45,12 @@ def _build_prompt(state: WorkflowState) -> str:
             "goal": "Suggest best join strategy and best embedding candidate column",
             "response_format": {
                 "selected_embedding_column": {"table": "string", "column": "string"},
+                "selected_embedding_columns": ["string"],
                 "join_strategy": "string",
                 "migration_notes": ["string"],
             },
         },
+        "current_selected_embedding_columns": current_selected_columns,
     }
     return json.dumps(prompt_payload, indent=2)
 
@@ -62,6 +65,34 @@ def _apply_llm_suggestions(state: WorkflowState, suggestions: dict[str, object])
                 "table": table,
                 "column": column,
             }
+
+    selected_columns_payload = suggestions.get("selected_embedding_columns", [])
+    if isinstance(selected_columns_payload, list):
+        normalized_columns: list[str] = []
+        for value in selected_columns_payload:
+            column_name = str(value).strip()
+            if not column_name or column_name in normalized_columns:
+                continue
+            normalized_columns.append(column_name)
+        if normalized_columns:
+            state.mapping_plan["selected_embedding_columns"] = normalized_columns
+
+    current_selected = state.mapping_plan.get("selected_embedding_column", {})
+    if isinstance(current_selected, dict):
+        selected_column = str(current_selected.get("column", "")).strip()
+        if selected_column:
+            columns_list = state.mapping_plan.get("selected_embedding_columns", [])
+            if not isinstance(columns_list, list):
+                columns_list = []
+            normalized_existing = [str(value).strip() for value in columns_list if str(value).strip()]
+            if selected_column in normalized_existing:
+                normalized_existing = [
+                    selected_column,
+                    *[value for value in normalized_existing if value != selected_column],
+                ]
+            else:
+                normalized_existing = [selected_column, *normalized_existing]
+            state.mapping_plan["selected_embedding_columns"] = normalized_existing
 
     join_strategy = suggestions.get("join_strategy")
     notes = suggestions.get("migration_notes")

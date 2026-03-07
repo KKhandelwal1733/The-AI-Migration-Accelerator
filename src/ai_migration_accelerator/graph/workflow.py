@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from importlib import import_module
 
+from ai_migration_accelerator.agents.business_logic_agent import analyze_business_logic
 from ai_migration_accelerator.agents.codegen_agent import generate_code
 from ai_migration_accelerator.agents.execution_agent import execute_migration
 from ai_migration_accelerator.agents.infra_generator_agent import generate_infra
@@ -51,6 +52,7 @@ def build_workflow():
     graph.add_node("collect_metadata", collect_metadata)
     graph.add_node("normalize_schema", normalize_schema)
     graph.add_node("analyzer", analyze_schema)
+    graph.add_node("business_logic", analyze_business_logic)
     graph.add_node("llm_advisor", run_llm_advisor)
     graph.add_node("code_generator", generate_code)
     graph.add_node("infra_generator", generate_infra)
@@ -61,7 +63,8 @@ def build_workflow():
     graph.add_edge(START, "collect_metadata")
     graph.add_edge("collect_metadata", "normalize_schema")
     graph.add_edge("normalize_schema", "analyzer")
-    graph.add_edge("analyzer", "llm_advisor")
+    graph.add_edge("analyzer", "business_logic")
+    graph.add_edge("business_logic", "llm_advisor")
     graph.add_edge("llm_advisor", "code_generator")
     graph.add_edge("code_generator", "infra_generator")
     graph.add_conditional_edges(
@@ -86,6 +89,7 @@ def execute_workflow(run_id: str, context: RunContext) -> WorkflowState:
         state = collect_metadata(initial_state)
         state = normalize_schema(state)
         state = analyze_schema(state)
+        state = analyze_business_logic(state)
         state = run_llm_advisor(state)
         state = generate_code(state)
         state = generate_infra(state)

@@ -16,12 +16,14 @@ VECTOR_DIM = int(os.getenv("VECTOR_DIM", "384"))
 REPORT_PATH = os.getenv("REPORT_PATH", "migration_report.json")
 
 JOIN_LOGIC = {{ joins | tojson }}
+BUSINESS_FILTERS = {{ business_filters | tojson }}
 DISCOVERED_TABLES = [
 {% for entity in entities %}
     "{{ entity.table }}",
 {% endfor %}
 ]
 EMBEDDING_COLUMN = "{{ selected_embedding_column.column }}"
+EMBEDDING_COLUMNS = {{ selected_embedding_columns | tojson }}
 _EMBEDDER: SentenceTransformer | None = None
 
 
@@ -47,6 +49,100 @@ def _fetch_embedding(payload: str) -> list[float]:
 
 def _load_table(connection, table_name: str) -> pd.DataFrame:
     return pd.read_sql(text(f'SELECT * FROM "{table_name}"'), connection)
+
+
+def _select_embedding_columns(frame: pd.DataFrame) -> list[str]:
+    available_columns = [str(column) for column in frame.columns]
+    selected = [column for column in EMBEDDING_COLUMNS if column in available_columns]
+    if selected:
+        return selected
+
+    if EMBEDDING_COLUMN and EMBEDDING_COLUMN in available_columns:
+        return [EMBEDDING_COLUMN]
+
+    keyword_columns: list[str] = []
+    for column in available_columns:
+        lowered = column.lower()
+        if any(key in lowered for key in ["note", "text", "description", "comment", "summary", "details"]):
+            keyword_columns.append(column)
+
+    if keyword_columns:
+        return keyword_columns
+
+    if available_columns:
+        return [available_columns[0]]
+    return []
+
+
+def _build_embedding_input(frame: pd.DataFrame, embedding_columns: list[str]) -> pd.Series:
+    if not embedding_columns:
+        return pd.Series([""] * len(frame.index), index=frame.index)
+
+    text_frame = frame[embedding_columns].fillna("").astype(str)
+    return text_frame.apply(
+        lambda row: " | ".join(value.strip() for value in row.tolist() if value and value.strip()),
+        axis=1,
+    )
+
+
+def _resolve_filter_column(frame: pd.DataFrame, filter_item: dict[str, str]) -> str | None:
+    requested = str(filter_item.get("column", "")).strip()
+    if not requested:
+        return None
+
+    if requested in frame.columns:
+        return requested
+
+    lowered_requested = requested.lower()
+    for column in frame.columns:
+        if str(column).lower() == lowered_requested:
+            return str(column)
+
+    for suffix_candidate in [f"{requested}_left", f"{requested}_right"]:
+        if suffix_candidate in frame.columns:
+            return suffix_candidate
+
+    return None
+
+
+def _apply_business_filters(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[dict[str, str]]]:
+    if not BUSINESS_FILTERS:
+        return frame, []
+
+    filtered = frame
+    applied: list[dict[str, str]] = []
+
+    for filter_item in BUSINESS_FILTERS:
+        if not isinstance(filter_item, dict):
+            continue
+
+        filter_column = _resolve_filter_column(filtered, filter_item)
+        if filter_column is None:
+            continue
+
+        operator = str(filter_item.get("operator", "==")).strip()
+        filter_value = str(filter_item.get("value", "")).strip()
+        if not filter_value:
+            continue
+
+        series = filtered[filter_column].fillna("").astype(str)
+        if operator == "!=":
+            mask = series.str.lower() != filter_value.lower()
+        else:
+            mask = series.str.lower() == filter_value.lower()
+
+        filtered = filtered[mask]
+        applied.append(
+            {
+                "table": str(filter_item.get("table", "")).strip(),
+                "column": filter_column,
+                "operator": operator,
+                "value": filter_value,
+                "source": str(filter_item.get("source", "")).strip(),
+            }
+        )
+
+    return filtered, applied
 
 
 def _join_frames(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
@@ -97,20 +193,10 @@ def run_migration() -> None:
             }
 
         merged = _join_frames(source_tables)
+        merged, applied_filters = _apply_business_filters(merged)
 
-        if EMBEDDING_COLUMN not in merged.columns:
-            fallback_column = None
-            for column in merged.columns:
-                if any(key in str(column).lower() for key in ["note", "text", "description", "comment"]):
-                    fallback_column = str(column)
-                    break
-            if fallback_column is None:
-                fallback_column = str(merged.columns[0])
-            embedding_column = fallback_column
-        else:
-            embedding_column = EMBEDDING_COLUMN
-
-        merged["embedding_input"] = merged[embedding_column].fillna("").astype(str)
+        embedding_columns = _select_embedding_columns(merged)
+        merged["embedding_input"] = _build_embedding_input(merged, embedding_columns)
         merged["embedding_vector"] = merged["embedding_input"].apply(_fetch_embedding)
 
         with target_engine.begin() as target_conn:
@@ -133,7 +219,13 @@ def run_migration() -> None:
                 source_key = str(row.get("id", row.name))
                 content = row["embedding_input"]
                 embedding_literal = "[" + ",".join(str(value) for value in row["embedding_vector"]) + "]"
-                metadata = json.dumps({"join_logic": JOIN_LOGIC, "embedding_column": embedding_column})
+                metadata = json.dumps(
+                    {
+                        "join_logic": JOIN_LOGIC,
+                        "embedding_columns": embedding_columns,
+                        "business_filters": applied_filters,
+                    }
+                )
                 target_conn.execute(
                     text(
                         f"""
@@ -163,8 +255,10 @@ def run_migration() -> None:
             "source_count": source_count,
             "target_count": target_count,
             "loss_percentage": round(loss_pct, 4),
-            "embedding_column": embedding_column,
+            "embedding_columns": embedding_columns,
             "join_count": len(JOIN_LOGIC),
+            "business_filter_count": len(applied_filters),
+            "business_filters": applied_filters,
         }
 
         with open(REPORT_PATH, "w", encoding="utf-8") as report_file:

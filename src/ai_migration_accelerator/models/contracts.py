@@ -12,6 +12,7 @@ class JobCreateRequest(BaseModel):
     source_connection: str | None = None
     target_connection: str | None = None
     ddl_text: str | None = None
+    business_logic_prompt: str | None = None
     enable_llm_advisor: bool | None = None
     include_sample_rows: bool | None = None
     sample_row_limit: int | None = Field(default=None, ge=0, le=50)

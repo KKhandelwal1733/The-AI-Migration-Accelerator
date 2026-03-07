@@ -132,6 +132,40 @@ def _embedding_candidates(table_profiles: list[dict[str, object]]) -> list[dict[
     return candidates
 
 
+def _selected_embedding_columns(
+    embedding_candidates: list[dict[str, str]],
+    selected_embedding_column: dict[str, str],
+) -> list[str]:
+    selected_table = str(selected_embedding_column.get("table", "")).strip()
+    selected_column = str(selected_embedding_column.get("column", "")).strip()
+
+    scoped_candidates = embedding_candidates
+    if selected_table:
+        table_candidates = [
+            candidate
+            for candidate in embedding_candidates
+            if str(candidate.get("table", "")).strip() == selected_table
+        ]
+        if table_candidates:
+            scoped_candidates = table_candidates
+
+    ordered_columns: list[str] = []
+    seen: set[str] = set()
+
+    if selected_column:
+        ordered_columns.append(selected_column)
+        seen.add(selected_column)
+
+    for candidate in scoped_candidates:
+        column_name = str(candidate.get("column", "")).strip()
+        if not column_name or column_name in seen:
+            continue
+        ordered_columns.append(column_name)
+        seen.add(column_name)
+
+    return ordered_columns
+
+
 def analyze_schema(state: WorkflowState) -> WorkflowState:
     table_profiles = state.schema_context.get("table_profiles", [])
     join_graph = state.schema_context.get("join_graph", [])
@@ -182,6 +216,10 @@ def analyze_schema(state: WorkflowState) -> WorkflowState:
         )
 
     target_candidate = embedding_candidates[0] if embedding_candidates else {"table": "", "column": ""}
+    selected_embedding_columns = _selected_embedding_columns(
+        embedding_candidates,
+        target_candidate,
+    )
 
     state.mapping_plan = {
         "columns": mapped_columns,
@@ -189,12 +227,14 @@ def analyze_schema(state: WorkflowState) -> WorkflowState:
         "join_logic": join_logic,
         "embedding_candidates": embedding_candidates,
         "selected_embedding_column": target_candidate,
+        "selected_embedding_columns": selected_embedding_columns,
         "workflow_summary": {
             "inferred_join_count": len(
                 [edge for edge in join_logic if bool(edge.get("inferred"))]
             ),
             "join_count": len(join_logic),
             "embedding_candidate_count": len(embedding_candidates),
+            "selected_embedding_column_count": len(selected_embedding_columns),
         },
     }
     return state

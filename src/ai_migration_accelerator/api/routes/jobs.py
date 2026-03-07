@@ -46,6 +46,7 @@ def create_job(request: JobCreateRequest) -> JobCreateResponse:
         source_connection=source_connection,
         target_connection=target_connection,
         ddl_text=request.ddl_text,
+        business_logic_prompt=request.business_logic_prompt,
         enable_llm_advisor=(
             request.enable_llm_advisor
             if request.enable_llm_advisor is not None

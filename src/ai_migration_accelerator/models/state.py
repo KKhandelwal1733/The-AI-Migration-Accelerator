@@ -19,6 +19,7 @@ class RunContext(BaseModel):
     target_type: str = Field(default="postgresql+pgvector")
     target_connection: str = Field(description="Target SQLAlchemy-compatible DSN")
     ddl_text: str | None = None
+    business_logic_prompt: str | None = None
     enable_llm_advisor: bool = False
     llm_model: str = "gemini-1.5-pro"
     include_sample_rows: bool = True
