@@ -34,3 +34,16 @@ def test_artifacts_not_found_for_unknown_run():
     client = TestClient(app)
     response = client.get("/artifacts/unknown-run-id")
     assert response.status_code == 404
+
+
+def test_create_job_rejects_removed_payload_fields():
+    client = TestClient(app)
+    payload = {
+        "source_type": "oracle",
+        "source_connection": "oracle+oracledb://user:pass@host:1521/service",
+        "target_connection": "postgresql+psycopg://user:pass@localhost:5432/db",
+        "llm_model": "gemini-1.5-pro",
+    }
+
+    create_response = client.post("/jobs", json=payload)
+    assert create_response.status_code == 422

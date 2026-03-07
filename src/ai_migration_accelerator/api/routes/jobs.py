@@ -51,7 +51,7 @@ def create_job(request: JobCreateRequest) -> JobCreateResponse:
             if request.enable_llm_advisor is not None
             else settings.enable_llm_advisor
         ),
-        llm_model=request.llm_model or settings.llm_model,
+        llm_model=settings.llm_model,
         include_sample_rows=(
             request.include_sample_rows
             if request.include_sample_rows is not None
@@ -62,9 +62,9 @@ def create_job(request: JobCreateRequest) -> JobCreateResponse:
             if request.sample_row_limit is not None
             else settings.sample_row_limit
         ),
-        embedding_model=request.embedding_model or settings.embedding_model,
-        hf_token_env_var=request.hf_token_env_var or settings.hf_token_env_var,
-        vector_table=request.vector_table or settings.vector_table,
+        embedding_model=settings.embedding_model,
+        hf_token_env_var=settings.hf_token_env_var,
+        vector_table=settings.vector_table,
         run_containerized_migration=(
             request.run_containerized_migration
             if request.run_containerized_migration is not None

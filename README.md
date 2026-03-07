@@ -30,7 +30,7 @@ export GOOGLE_API_KEY=<your_api_key>
 export LLM_MODEL=gemini-1.5-pro
 ```
 
-`POST /jobs` now resolves defaults from `.env` for these fields when omitted:
+`POST /jobs` now resolves defaults from `.env` for these fields:
 - `enable_llm_advisor`
 - `llm_model`
 - `include_sample_rows`
@@ -41,6 +41,17 @@ export LLM_MODEL=gemini-1.5-pro
 - `run_containerized_migration`
 - `container_runtime`
 - `source_connection` / `target_connection` (if provided in `.env`)
+
+Only these are accepted in `POST /jobs` payload for runtime override:
+- `source_type`
+- `source_connection`
+- `target_connection`
+- `ddl_text`
+- `enable_llm_advisor`
+- `include_sample_rows`
+- `sample_row_limit`
+- `run_containerized_migration`
+- `container_runtime`
 
 ### Embeddings via Hugging Face sentence-transformers
 
@@ -100,10 +111,7 @@ curl -X POST http://127.0.0.1:8000/jobs \
     "source_connection": "oracle+oracledb://accelerator:accelerator@oracle:1521/XEPDB1",
     "target_connection": "postgresql+psycopg://accelerator:accelerator@postgres:5432/accelerator",
     "ddl_text": "CREATE TABLE customers (id NUMBER, full_name VARCHAR2(120), notes VARCHAR2(4000));",
-    "enable_llm_advisor": true,
-    "llm_model": "gemini-1.5-pro",
-    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
-    "hf_token_env_var": "HF_TOKEN"
+    "enable_llm_advisor": true
   }'
 ```
 

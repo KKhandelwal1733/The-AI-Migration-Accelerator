@@ -31,6 +31,12 @@ def gate_review(state: WorkflowState) -> WorkflowState:
     return state
 
 
+def route_after_infra(state: WorkflowState) -> str:
+    if state.context.run_containerized_migration:
+        return "executor"
+    return "run_validation"
+
+
 def build_workflow():
     try:
         graph_module = import_module("langgraph.graph")
@@ -58,7 +64,11 @@ def build_workflow():
     graph.add_edge("analyzer", "llm_advisor")
     graph.add_edge("llm_advisor", "code_generator")
     graph.add_edge("code_generator", "infra_generator")
-    graph.add_edge("infra_generator", "executor")
+    graph.add_conditional_edges(
+        "infra_generator",
+        route_after_infra,
+        {"executor": "executor", "run_validation": "run_validation"},
+    )
     graph.add_conditional_edges(
         "executor",
         should_validate,
@@ -79,7 +89,8 @@ def execute_workflow(run_id: str, context: RunContext) -> WorkflowState:
         state = run_llm_advisor(state)
         state = generate_code(state)
         state = generate_infra(state)
-        state = execute_migration(state)
+        if state.context.run_containerized_migration:
+            state = execute_migration(state)
         if should_validate(state) == "run_validation":
             return run_validation(state)
         return gate_review(state)
