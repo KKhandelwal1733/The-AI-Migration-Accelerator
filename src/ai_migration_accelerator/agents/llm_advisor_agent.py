@@ -3,10 +3,22 @@ from __future__ import annotations
 import json
 import os
 import re
+from datetime import date, datetime
+from decimal import Decimal
 from importlib import import_module
 
 from ai_migration_accelerator.core.settings import get_settings
 from ai_migration_accelerator.models.state import WorkflowState
+
+
+def _json_default(value: object) -> object:
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
 
 
 def _extract_json_block(text: str) -> dict[str, object] | None:
@@ -52,7 +64,7 @@ def _build_prompt(state: WorkflowState) -> str:
         },
         "current_selected_embedding_columns": current_selected_columns,
     }
-    return json.dumps(prompt_payload, indent=2)
+    return json.dumps(prompt_payload, indent=2, default=_json_default)
 
 
 def _apply_llm_suggestions(state: WorkflowState, suggestions: dict[str, object]) -> None:

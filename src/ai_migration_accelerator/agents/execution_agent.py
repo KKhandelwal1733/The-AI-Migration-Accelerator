@@ -2,12 +2,27 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
 from ai_migration_accelerator.models.state import WorkflowState
+
+
+def _resolve_hf_token_env_var(state: WorkflowState) -> str:
+    configured = str(state.context.hf_token_env_var or "").strip()
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", configured):
+        return configured
+
+    state.open_questions.append(
+        (
+            f"Invalid HF token env var key '{configured}' in context; "
+            "falling back to 'HF_TOKEN'."
+        )
+    )
+    return "HF_TOKEN"
 
 
 def _simulated_execution(state: WorkflowState) -> WorkflowState:
@@ -31,7 +46,7 @@ def _simulated_execution(state: WorkflowState) -> WorkflowState:
 
 def execute_migration(state: WorkflowState) -> WorkflowState:
     if not state.context.run_containerized_migration:
-        return _simulated_execution(state)
+        return state
 
     runtime = state.context.container_runtime
     if shutil.which(runtime) is None:
@@ -55,6 +70,8 @@ def execute_migration(state: WorkflowState) -> WorkflowState:
             (temp_path / file_name).write_text(content, encoding="utf-8")
 
         image_tag = f"ai-migration-run-{state.run_id[:8]}"
+        mount_source = str(temp_path.resolve())
+        hf_token_env_key = _resolve_hf_token_env_var(state)
 
         try:
             subprocess.run(
@@ -71,11 +88,11 @@ def execute_migration(state: WorkflowState) -> WorkflowState:
                     "-e",
                     "REPORT_PATH=/output/migration_report.json",
                     "-e",
-                    f"{state.context.hf_token_env_var}={os.getenv(state.context.hf_token_env_var, '')}",
+                    f"{hf_token_env_key}={os.getenv(hf_token_env_key, '')}",
                     "-e",
                     "VECTOR_DIM=" + os.getenv("VECTOR_DIM", "384"),
                     "-v",
-                    f"{temp_path.as_posix()}:/output",
+                    f"{mount_source}:/output",
                     image_tag,
                 ],
                 check=True,
@@ -84,7 +101,11 @@ def execute_migration(state: WorkflowState) -> WorkflowState:
             )
         except subprocess.CalledProcessError as exc:
             state.open_questions.append(
-                f"Container execution failed: {exc.stderr.strip() or exc.stdout.strip()}"
+                (
+                    "Container execution failed "
+                    f"(cmd={' '.join(exc.cmd)}, exit_code={exc.returncode}): "
+                    f"{exc.stderr.strip() or exc.stdout.strip()}"
+                )
             )
             return _simulated_execution(state)
 

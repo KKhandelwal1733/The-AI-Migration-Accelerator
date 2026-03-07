@@ -17,7 +17,7 @@ class JobCreateRequest(BaseModel):
     include_sample_rows: bool | None = None
     sample_row_limit: int | None = Field(default=None, ge=0, le=50)
     run_containerized_migration: bool | None = None
-    container_runtime: str | None = Field(default=None, pattern="^(podman|docker)$")
+    container_runtime: str | None = Field(default="podman", pattern="^(podman|docker)$")
 
 
 class JobCreateResponse(BaseModel):
