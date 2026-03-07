@@ -30,6 +30,8 @@ class AppSettings(BaseSettings):
     vector_table: str = "rag_documents"
     run_containerized_migration: bool = False
     container_runtime: str = "podman"
+    container_network_mode: str = "auto"
+    container_network_name: str | None = None
 
 
 @lru_cache

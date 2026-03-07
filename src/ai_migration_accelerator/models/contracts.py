@@ -18,6 +18,11 @@ class JobCreateRequest(BaseModel):
     sample_row_limit: int | None = Field(default=None, ge=0, le=50)
     run_containerized_migration: bool | None = None
     container_runtime: str | None = Field(default="podman", pattern="^(podman|docker)$")
+    container_network_mode: str | None = Field(
+        default=None,
+        pattern="^(auto|host|compose)$",
+    )
+    container_network_name: str | None = None
 
 
 class JobCreateResponse(BaseModel):

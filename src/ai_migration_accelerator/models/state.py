@@ -29,6 +29,8 @@ class RunContext(BaseModel):
     vector_table: str = "rag_documents"
     run_containerized_migration: bool = False
     container_runtime: str = "podman"
+    container_network_mode: str = "auto"
+    container_network_name: str | None = None
 
 
 class WorkflowState(BaseModel):
@@ -40,5 +42,6 @@ class WorkflowState(BaseModel):
     mapping_plan: dict[str, Any] = Field(default_factory=dict)
     generated_artifacts: dict[str, str] = Field(default_factory=dict)
     execution_report: dict[str, Any] = Field(default_factory=dict)
+    execution_logs: list[str] = Field(default_factory=list)
     validation_report: dict[str, Any] = Field(default_factory=dict)
     open_questions: list[str] = Field(default_factory=list)

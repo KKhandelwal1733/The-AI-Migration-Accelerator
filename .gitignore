@@ -52,3 +52,4 @@ Thumbs.db
 # Podman / compose local overrides
 ops/.env
 ops/.podman/
+generated_migrations/

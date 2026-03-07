@@ -54,11 +54,21 @@ def _build_prompt(state: WorkflowState) -> str:
         "join_graph": join_graph,
         "current_selected_embedding_column": current_selected,
         "requirements": {
-            "goal": "Suggest best join strategy and best embedding candidate column",
+            "goal": "Suggest best join strategy and best embedding candidate columns",
             "response_format": {
                 "selected_embedding_column": {"table": "string", "column": "string"},
                 "selected_embedding_columns": ["string"],
                 "join_strategy": "string",
+                "join_plan": [
+                    {
+                        "from": "string",
+                        "to": "string",
+                        "on": {
+                            "from_columns": ["string"],
+                            "to_columns": ["string"],
+                        },
+                    }
+                ],
                 "migration_notes": ["string"],
             },
         },
@@ -107,11 +117,45 @@ def _apply_llm_suggestions(state: WorkflowState, suggestions: dict[str, object])
             state.mapping_plan["selected_embedding_columns"] = normalized_existing
 
     join_strategy = suggestions.get("join_strategy")
+    join_plan_payload = suggestions.get("join_plan", [])
     notes = suggestions.get("migration_notes")
+
+    llm_join_plan: list[dict[str, object]] = []
+    if isinstance(join_plan_payload, list):
+        for edge in join_plan_payload:
+            if not isinstance(edge, dict):
+                continue
+            from_table = str(edge.get("from", "")).strip()
+            to_table = str(edge.get("to", "")).strip()
+            on_payload = edge.get("on", {})
+            if not isinstance(on_payload, dict):
+                continue
+            from_columns_payload = on_payload.get("from_columns", [])
+            to_columns_payload = on_payload.get("to_columns", [])
+            if not isinstance(from_columns_payload, list) or not isinstance(to_columns_payload, list):
+                continue
+            from_columns = [str(value).strip() for value in from_columns_payload if str(value).strip()]
+            to_columns = [str(value).strip() for value in to_columns_payload if str(value).strip()]
+            if not from_table or not to_table or not from_columns or not to_columns:
+                continue
+            llm_join_plan.append(
+                {
+                    "from": from_table,
+                    "to": to_table,
+                    "on": {
+                        "from_columns": from_columns,
+                        "to_columns": to_columns,
+                    },
+                }
+            )
+
+    if llm_join_plan:
+        state.mapping_plan["llm_join_plan"] = llm_join_plan
 
     state.mapping_plan["llm_advice"] = {
         "model": state.context.llm_model,
         "join_strategy": str(join_strategy) if join_strategy is not None else "",
+        "join_plan_edge_count": len(llm_join_plan),
         "migration_notes": notes if isinstance(notes, list) else [],
     }
 

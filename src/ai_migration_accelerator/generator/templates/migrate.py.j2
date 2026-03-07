@@ -16,6 +16,7 @@ VECTOR_DIM = int(os.getenv("VECTOR_DIM", "384"))
 REPORT_PATH = os.getenv("REPORT_PATH", "migration_report.json")
 
 JOIN_LOGIC = {{ joins | tojson }}
+LLM_JOIN_PLAN = {{ llm_join_plan | tojson }}
 BUSINESS_FILTERS = {{ business_filters | tojson }}
 DISCOVERED_TABLES = [
 {% for entity in entities %}
@@ -48,7 +49,7 @@ def _fetch_embedding(payload: str) -> list[float]:
 
 
 def _load_table(connection, table_name: str) -> pd.DataFrame:
-    return pd.read_sql(text(f'SELECT * FROM "{table_name}"'), connection)
+    return pd.read_sql(text(f'SELECT * FROM {table_name}'), connection)
 
 
 def _select_embedding_columns(frame: pd.DataFrame) -> list[str]:
@@ -146,28 +147,81 @@ def _apply_business_filters(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[dic
 
 
 def _join_frames(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    if not JOIN_LOGIC:
+    join_edges = LLM_JOIN_PLAN if LLM_JOIN_PLAN else JOIN_LOGIC
+    if not join_edges:
         return next(iter(tables.values()))
 
-    first_join = JOIN_LOGIC[0]
-    left_name = first_join.get("from")
-    right_name = first_join.get("to")
-    from_columns = first_join.get("on", {}).get("from_columns", [])
-    to_columns = first_join.get("on", {}).get("to_columns", [])
+    seed_table = None
+    for edge in join_edges:
+        if isinstance(edge, dict) and edge.get("from") in tables:
+            seed_table = edge.get("from")
+            break
 
-    if not left_name or not right_name or not from_columns or not to_columns:
+    if seed_table is None:
         return next(iter(tables.values()))
 
-    if left_name not in tables or right_name not in tables:
-        return next(iter(tables.values()))
+    merged = tables[str(seed_table)].copy()
+    merged_tables = {str(seed_table)}
 
-    return tables[left_name].merge(
-        tables[right_name],
-        left_on=from_columns[0],
-        right_on=to_columns[0],
-        how="left",
-        suffixes=("_left", "_right"),
-    )
+    remaining_edges = [edge for edge in join_edges if isinstance(edge, dict)]
+    while remaining_edges:
+        applied_any = False
+        next_remaining: list[dict[str, object]] = []
+
+        for edge in remaining_edges:
+            left_name = str(edge.get("from", "")).strip()
+            right_name = str(edge.get("to", "")).strip()
+            on_payload = edge.get("on", {})
+            if not isinstance(on_payload, dict):
+                next_remaining.append(edge)
+                continue
+
+            from_columns = on_payload.get("from_columns", [])
+            to_columns = on_payload.get("to_columns", [])
+            if not isinstance(from_columns, list) or not isinstance(to_columns, list):
+                next_remaining.append(edge)
+                continue
+            if not from_columns or not to_columns:
+                next_remaining.append(edge)
+                continue
+
+            can_join_left_to_right = left_name in merged_tables and right_name in tables
+            can_join_right_to_left = right_name in merged_tables and left_name in tables
+
+            if not can_join_left_to_right and not can_join_right_to_left:
+                next_remaining.append(edge)
+                continue
+
+            if can_join_left_to_right:
+                right_frame = tables[right_name]
+                left_key = str(from_columns[0])
+                right_key = str(to_columns[0])
+            else:
+                right_frame = tables[left_name]
+                left_key = str(to_columns[0])
+                right_key = str(from_columns[0])
+
+            if left_key not in merged.columns or right_key not in right_frame.columns:
+                next_remaining.append(edge)
+                continue
+
+            merged = merged.merge(
+                right_frame,
+                left_on=left_key,
+                right_on=right_key,
+                how="left",
+                suffixes=("_left", "_right"),
+            )
+
+            merged_tables.add(left_name)
+            merged_tables.add(right_name)
+            applied_any = True
+
+        if not applied_any:
+            break
+        remaining_edges = next_remaining
+
+    return merged
 
 
 def run_migration() -> None:

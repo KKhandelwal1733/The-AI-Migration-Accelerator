@@ -52,6 +52,16 @@ Only these are accepted in `POST /jobs` payload for runtime override:
 - `sample_row_limit`
 - `run_containerized_migration`
 - `container_runtime`
+- `container_network_mode` (`auto`, `host`, `compose`)
+- `container_network_name` (required for `compose`; optional for `auto`)
+
+When `run_containerized_migration=true`, `container_network_mode=auto` rewrites loopback hosts
+(`localhost`, `127.0.0.1`, `::1`) to the runtime host bridge
+(`host.containers.internal` for Podman, `host.docker.internal` for Docker).
+
+For compose service discovery (`oracle`, `postgres` hostnames), use:
+- `container_network_mode=compose`
+- `container_network_name=<your_compose_network>` (for example `ops_default`)
 
 ### Embeddings via Hugging Face sentence-transformers
 

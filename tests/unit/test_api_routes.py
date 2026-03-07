@@ -28,11 +28,36 @@ def test_create_job_and_fetch_status_and_artifacts():
     assert "Dockerfile" in files
     assert "requirements.txt" in files
     assert "validation_report.json" in files
+    assert "execution_logs.txt" not in files
+    assert "migrate_script_path.txt" not in files
+
+    logs_response = client.get(f"/jobs/{run_id}/logs")
+    assert logs_response.status_code == 200
+    payload = logs_response.json()
+    assert payload["run_id"] == run_id
+    assert isinstance(payload["logs"], list)
+    assert "log_lines" in payload
+
+    stream_response = client.get(f"/jobs/{run_id}/logs/stream")
+    assert stream_response.status_code == 200
+    assert stream_response.headers["content-type"].startswith("text/event-stream")
 
 
 def test_artifacts_not_found_for_unknown_run():
     client = TestClient(app)
     response = client.get("/artifacts/unknown-run-id")
+    assert response.status_code == 404
+
+
+def test_logs_not_found_for_unknown_run():
+    client = TestClient(app)
+    response = client.get("/jobs/unknown-run-id/logs")
+    assert response.status_code == 404
+
+
+def test_log_stream_not_found_for_unknown_run():
+    client = TestClient(app)
+    response = client.get("/jobs/unknown-run-id/logs/stream")
     assert response.status_code == 404
 
 
@@ -47,3 +72,19 @@ def test_create_job_rejects_removed_payload_fields():
 
     create_response = client.post("/jobs", json=payload)
     assert create_response.status_code == 422
+
+
+def test_create_job_async_returns_running_or_completed():
+    client = TestClient(app)
+    payload = {
+        "source_type": "oracle",
+        "source_connection": "oracle+oracledb://user:pass@host:1521/service",
+        "target_connection": "postgresql+psycopg://user:pass@localhost:5432/db",
+        "ddl_text": "CREATE TABLE customers (id NUMBER, payload VARCHAR2(255));",
+    }
+
+    response = client.post("/jobs/async", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "run_id" in data
+    assert data["status"] in {"running", "completed", "failed"}

@@ -15,6 +15,7 @@ def generate_code(state: WorkflowState) -> WorkflowState:
         columns=state.mapping_plan.get("columns", []),
         entities=state.mapping_plan.get("business_entities", []),
         joins=state.mapping_plan.get("join_logic", []),
+        llm_join_plan=state.mapping_plan.get("llm_join_plan", []),
         business_filters=state.mapping_plan.get("business_filters", []),
         embedding_candidates=state.mapping_plan.get("embedding_candidates", []),
         selected_embedding_column=state.mapping_plan.get("selected_embedding_column", {}),
@@ -27,6 +28,13 @@ def generate_code(state: WorkflowState) -> WorkflowState:
     )
 
     state.generated_artifacts["migrate.py"] = rendered_script
+
+    output_dir = Path(__file__).parents[3] / "generated_migrations" / state.run_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "migrate.py"
+    output_path.write_text(rendered_script, encoding="utf-8")
+    state.generated_artifacts["migrate_script_path.txt"] = str(output_path)
+
     state.generated_artifacts["pipeline_summary.md"] = (
         f"Generated migrate.py for {len(state.mapping_plan.get('columns', []))} columns "
         f"across {len(state.mapping_plan.get('business_entities', []))} entities."

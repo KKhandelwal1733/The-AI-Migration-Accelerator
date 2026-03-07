@@ -54,3 +54,22 @@ def test_execute_workflow_includes_business_filters_in_generated_script():
     migrate_script = result.generated_artifacts["migrate.py"]
     assert "BUSINESS_FILTERS" in migrate_script
     assert "resolved" in migrate_script.lower()
+
+
+def test_generated_script_includes_llm_join_plan_execution_support():
+    context = RunContext(
+        source_type="oracle",
+        source_connection="oracle+oracledb://user:pass@host:1521/service",
+        target_connection="postgresql+psycopg://user:pass@localhost:5432/db",
+        ddl_text="""
+        CREATE TABLE customers (id NUMBER, name VARCHAR2(100));
+        CREATE TABLE orders (id NUMBER, customer_id NUMBER, note VARCHAR2(100));
+        """,
+    )
+
+    result = execute_workflow(run_id="test-run-llm-join-plan", context=context)
+    migrate_script = result.generated_artifacts["migrate.py"]
+
+    assert "LLM_JOIN_PLAN" in migrate_script
+    assert "join_edges = LLM_JOIN_PLAN if LLM_JOIN_PLAN else JOIN_LOGIC" in migrate_script
+    assert "while remaining_edges:" in migrate_script
