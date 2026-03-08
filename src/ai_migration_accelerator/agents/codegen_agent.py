@@ -33,7 +33,6 @@ def generate_code(state: WorkflowState) -> WorkflowState:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "migrate.py"
     output_path.write_text(rendered_script, encoding="utf-8")
-    state.generated_artifacts["migrate_script_path.txt"] = str(output_path)
 
     state.generated_artifacts["pipeline_summary.md"] = (
         f"Generated migrate.py for {len(state.mapping_plan.get('columns', []))} columns "

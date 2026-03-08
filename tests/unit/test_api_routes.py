@@ -29,7 +29,6 @@ def test_create_job_and_fetch_status_and_artifacts():
     assert "requirements.txt" in files
     assert "validation_report.json" in files
     assert "execution_logs.txt" not in files
-    assert "migrate_script_path.txt" not in files
 
     logs_response = client.get(f"/jobs/{run_id}/logs")
     assert logs_response.status_code == 200

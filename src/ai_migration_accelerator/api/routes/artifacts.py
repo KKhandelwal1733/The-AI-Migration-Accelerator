@@ -11,7 +11,6 @@ router = APIRouter()
 
 _INTERNAL_ARTIFACT_KEYS = {
     "execution_logs.txt",
-    "migrate_script_path.txt",
 }
 
 
